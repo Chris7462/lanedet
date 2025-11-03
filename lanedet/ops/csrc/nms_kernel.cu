@@ -142,7 +142,8 @@ __global__ void nms_collect(const int64_t boxes_num, const int64_t col_blocks, i
   *num_to_keep = min(top_k,num_to_keep_);
 }
 
-#define CHECK_CONTIGUOUS(x) AT_ASSERTM(x.is_contiguous(), #x " must be contiguous")
+// Updated for PyTorch 2.x compatibility
+#define CHECK_CONTIGUOUS(x) TORCH_CHECK(x.is_contiguous(), #x " must be contiguous")
 
 std::vector<at::Tensor> nms_cuda_forward(
         at::Tensor boxes,
@@ -155,7 +156,7 @@ std::vector<at::Tensor> nms_cuda_forward(
 
   const int col_blocks = DIVUP(boxes_num, threadsPerBlock);
 
-  AT_ASSERTM (col_blocks < MAX_COL_BLOCKS, "The number of column blocks must be less than MAX_COL_BLOCKS. Increase the MAX_COL_BLOCKS constant if needed.");
+  TORCH_CHECK(col_blocks < MAX_COL_BLOCKS, "The number of column blocks must be less than MAX_COL_BLOCKS. Increase the MAX_COL_BLOCKS constant if needed.");
 
   auto longOptions = torch::TensorOptions().device(torch::kCUDA).dtype(torch::kLong);
   auto mask = at::empty({boxes_num * col_blocks}, longOptions);
@@ -168,12 +169,13 @@ std::vector<at::Tensor> nms_cuda_forward(
   CHECK_CONTIGUOUS(idx);
   CHECK_CONTIGUOUS(mask);
 
-  AT_DISPATCH_FLOATING_TYPES(boxes.type(), "nms_cuda_forward", ([&] {
+  // Updated for PyTorch 2.x: use scalar_type() instead of type()
+  AT_DISPATCH_FLOATING_TYPES(boxes.scalar_type(), "nms_cuda_forward", ([&] {
     nms_kernel<<<blocks, threads>>>(boxes_num,
                                     (scalar_t)nms_overlap_thresh,
-                                    boxes.data<scalar_t>(),
-                                    idx.data<int64_t>(),
-                                    mask.data<int64_t>());
+                                    boxes.data_ptr<scalar_t>(),
+                                    idx.data_ptr<int64_t>(),
+                                    mask.data_ptr<int64_t>());
   }));
 
   auto keep = at::empty({boxes_num}, longOptions);
@@ -181,13 +183,12 @@ std::vector<at::Tensor> nms_cuda_forward(
   auto num_to_keep = at::empty({}, longOptions);
 
   nms_collect<<<1, 1>>>(boxes_num, col_blocks, top_k,
-                        idx.data<int64_t>(),
-                        mask.data<int64_t>(),
-                        keep.data<int64_t>(),
-                        parent_object_index.data<int64_t>(),
-                        num_to_keep.data<int64_t>());
+                        idx.data_ptr<int64_t>(),
+                        mask.data_ptr<int64_t>(),
+                        keep.data_ptr<int64_t>(),
+                        parent_object_index.data_ptr<int64_t>(),
+                        num_to_keep.data_ptr<int64_t>());
 
 
   return {keep,num_to_keep,parent_object_index};
 }
-

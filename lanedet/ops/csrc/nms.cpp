@@ -37,8 +37,9 @@ std::vector<at::Tensor> nms_cuda_forward(
         float nms_overlap_thresh,
         unsigned long top_k);
 
-#define CHECK_CUDA(x) AT_ASSERTM(x.type().is_cuda(), #x " must be a CUDA tensor")
-#define CHECK_CONTIGUOUS(x) AT_ASSERTM(x.is_contiguous(), #x " must be contiguous")
+// Updated for PyTorch 2.x compatibility
+#define CHECK_CUDA(x) TORCH_CHECK(x.is_cuda(), #x " must be a CUDA tensor")
+#define CHECK_CONTIGUOUS(x) TORCH_CHECK(x.is_contiguous(), #x " must be contiguous")
 #define CHECK_INPUT(x) CHECK_CUDA(x); CHECK_CONTIGUOUS(x)
 
 std::vector<at::Tensor> nms_forward(
@@ -59,4 +60,3 @@ std::vector<at::Tensor> nms_forward(
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
     m.def("nms_forward", &nms_forward, "NMS");
 }
-
