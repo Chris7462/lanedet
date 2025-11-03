@@ -10,7 +10,7 @@ from shapely.geometry import Polygon, Point, LineString
 import math
 
 from ..registry import PROCESS 
-from mmcv.parallel import DataContainer as DC
+from lanedet.utils.data_container import DataContainer as DC
 from .transforms import to_tensor
 
 def get_line_intersection(x, y, line):

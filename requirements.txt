@@ -13,5 +13,5 @@ Shapely==1.7.0
 ujson==1.35
 yapf
 albumentations==0.4.6
-mmcv==1.2.5
+pyyaml
 pathspec

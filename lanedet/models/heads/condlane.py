@@ -2,7 +2,7 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 from torch.hub import load_state_dict_from_url
-from mmcv.cnn import ConvModule
+from lanedet.models.layers import ConvModule
 from lanedet.core.lane import Lane
 import numpy as np
 import math
