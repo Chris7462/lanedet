@@ -3,7 +3,7 @@ import warnings
 import torch.nn as nn
 import torch.nn.functional as F
 
-from mmcv.cnn import ConvModule
+from lanedet.models.layers import ConvModule
 
 from ..registry import NECKS
 
@@ -129,7 +129,7 @@ class FPN(nn.Module):
             #  it cannot co-exist with `size` in `F.interpolate`.
             if 'scale_factor' in self.upsample_cfg:
                 laterals[i - 1] += F.interpolate(laterals[i],
-                                                 **self.upsample_cfg)
+                                                  **self.upsample_cfg)
             else:
                 prev_shape = laterals[i - 1].shape[2:]
                 laterals[i - 1] += F.interpolate(

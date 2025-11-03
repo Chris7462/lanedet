@@ -9,7 +9,7 @@ import logging
 from .registry import DATASETS
 from .process import Process
 from lanedet.utils.visualization import imshow_lanes
-from mmcv.parallel import DataContainer as DC
+from lanedet.utils.data_container import DataContainer as DC
 
 
 @DATASETS.register_module
@@ -62,4 +62,4 @@ class BaseDataset(Dataset):
         sample.update({'meta': meta})
 
 
-        return sample 
+        return sample

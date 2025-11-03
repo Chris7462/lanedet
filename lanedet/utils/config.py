@@ -1,29 +1,28 @@
-# Copyright (c) Open-MMLab. All rights reserved.
-import ast
+import os
 import os.path as osp
-import shutil
 import sys
+import ast
+import shutil
 import tempfile
+import json
+import yaml
 from argparse import Action, ArgumentParser
 from collections import abc
 from importlib import import_module
-
 from addict import Dict
 from yapf.yapflib.yapf_api import FormatCode
 
 
-BASE_KEY = '_base_'
 DELETE_KEY = '_delete_'
 RESERVED_KEYS = ['filename', 'text', 'pretty_text']
+
 
 def check_file_exist(filename, msg_tmpl='file "{}" does not exist'):
     if not osp.isfile(filename):
         raise FileNotFoundError(msg_tmpl.format(filename))
 
 
-
 class ConfigDict(Dict):
-
     def __missing__(self, name):
         raise KeyError(name)
 
@@ -43,11 +42,11 @@ class ConfigDict(Dict):
 def add_args(parser, cfg, prefix=''):
     for k, v in cfg.items():
         if isinstance(v, str):
-            parser.add_argument('--' + prefix + k)
+            parser.add_argument('--' + prefix + k, type=type(v))
         elif isinstance(v, int):
-            parser.add_argument('--' + prefix + k, type=int)
+            parser.add_argument('--' + prefix + k, type=type(v))
         elif isinstance(v, float):
-            parser.add_argument('--' + prefix + k, type=float)
+            parser.add_argument('--' + prefix + k, type=type(v))
         elif isinstance(v, bool):
             parser.add_argument('--' + prefix + k, action='store_true')
         elif isinstance(v, dict):
@@ -117,42 +116,16 @@ class Config:
                 del sys.modules[temp_module_name]
                 # close temp file
                 temp_config_file.close()
-        elif filename.endswith(('.yml', '.yaml', '.json')):
-            import mmcv
-            cfg_dict = mmcv.load(filename)
+        elif filename.endswith(('.yml', '.yaml')):
+            with open(filename, 'r') as f:
+                cfg_dict = yaml.safe_load(f)
+        elif filename.endswith('.json'):
+            with open(filename, 'r') as f:
+                cfg_dict = json.load(f)
         else:
             raise IOError('Only py/yml/yaml/json type are supported now!')
-
-        cfg_text = ''
-        with open(filename, 'r') as f:
-            cfg_text += f.read()
-
-        if BASE_KEY in cfg_dict:
-            cfg_dir = osp.dirname(filename)
-            base_filename = cfg_dict.pop(BASE_KEY)
-            base_filename = base_filename if isinstance(
-                base_filename, list) else [base_filename]
-
-            cfg_dict_list = list()
-            cfg_text_list = list()
-            for f in base_filename:
-                _cfg_dict, _cfg_text = Config._file2dict(osp.join(cfg_dir, f))
-                cfg_dict_list.append(_cfg_dict)
-                cfg_text_list.append(_cfg_text)
-
-            base_cfg_dict = dict()
-            for c in cfg_dict_list:
-                if len(base_cfg_dict.keys() & c.keys()) > 0:
-                    raise KeyError('Duplicate key is not allowed among bases')
-                base_cfg_dict.update(c)
-
-            base_cfg_dict = Config._merge_a_into_b(cfg_dict, base_cfg_dict)
-            cfg_dict = base_cfg_dict
-
-            # merge cfg_text
-            cfg_text_list.append(cfg_text)
-            cfg_text = '\n'.join(cfg_text_list)
-
+        
+        cfg_text = filename
         return cfg_dict, cfg_text
 
     @staticmethod
@@ -268,22 +241,18 @@ class Config:
                 attr_str = _format_basic_types(k, v, use_mapping)
             return attr_str
 
-        def _contain_invalid_identifier(dict_str):
-            contain_invalid_identifier = False
-            for key_name in dict_str:
-                contain_invalid_identifier |= \
-                    (not str(key_name).isidentifier())
-            return contain_invalid_identifier
-
         def _format_dict(input_dict, outest_level=False):
             r = ''
             s = []
 
-            use_mapping = _contain_invalid_identifier(input_dict)
+            use_mapping = isinstance(input_dict, dict)
             if use_mapping:
-                r += '{'
-            for idx, (k, v) in enumerate(input_dict.items()):
-                is_last = idx >= len(input_dict) - 1
+                items = list(input_dict.items())
+            else:
+                items = input_dict
+
+            for idx, (k, v) in enumerate(items):
+                is_last = idx >= len(items) - 1
                 end = '' if outest_level or is_last else ','
                 if isinstance(v, dict):
                     v_str = '\n' + _format_dict(v)
@@ -300,8 +269,6 @@ class Config:
 
                 s.append(attr_str)
             r += '\n'.join(s)
-            if use_mapping:
-                r += '}'
             return r
 
         cfg_dict = self._cfg_dict.to_dict()
@@ -352,13 +319,18 @@ class Config:
             else:
                 with open(file, 'w') as f:
                     f.write(self.pretty_text)
-        else:
-            import mmcv
+        elif self.filename.endswith(('.yml', '.yaml')):
             if file is None:
-                file_format = self.filename.split('.')[-1]
-                return mmcv.dump(cfg_dict, file_format=file_format)
+                return yaml.dump(cfg_dict, default_flow_style=False)
             else:
-                mmcv.dump(cfg_dict, file)
+                with open(file, 'w') as f:
+                    yaml.dump(cfg_dict, f, default_flow_style=False)
+        elif self.filename.endswith('.json'):
+            if file is None:
+                return json.dumps(cfg_dict, indent=4)
+            else:
+                with open(file, 'w') as f:
+                    json.dump(cfg_dict, f, indent=4)
 
     def merge_from_dict(self, options):
         """Merge list into cfg_dict
