@@ -40,7 +40,8 @@ class ASPP(nn.Module):
         x3 = self.aspp3(x)
         x4 = self.aspp4(x)
         x5 = self.image_pool(x)
-        x5 = F.upsample(x5, size=x4.size()[2:], mode='nearest')
+        # Updated for PyTorch 2.x: use F.interpolate instead of deprecated F.upsample
+        x5 = F.interpolate(x5, size=x4.size()[2:], mode='nearest')
 
         x = torch.cat((x1, x2, x3, x4, x5), dim = 1)
 
